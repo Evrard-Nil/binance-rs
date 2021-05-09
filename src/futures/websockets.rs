@@ -1,38 +1,32 @@
-use crate::{
-    errors::*,
-    futures::model::OrderBook,
-    model::{
-        AccountUpdateEvent, AggrTradesEvent, BookTickerEvent, DayTickerEvent, DepthOrderBookEvent,
-        KlineEvent, OrderTradeEvent, TradeEvent,
-    },
-};
+use crate::errors::*;
 use crate::config::*;
+use crate::model::*;
 use url::Url;
 use serde::{Deserialize, Serialize};
+
 use std::sync::atomic::{AtomicBool, Ordering};
 use tungstenite::{connect, Message};
 use tungstenite::protocol::WebSocket;
 use tungstenite::client::AutoStream;
 use tungstenite::handshake::client::Response;
 
-enum FuturesWebsocketAPI {
+#[allow(clippy::all)]
+enum WebsocketAPI {
     Default,
     MultiStream,
     Custom(String),
 }
 
-impl FuturesWebsocketAPI {
+impl WebsocketAPI {
+
     fn params(self, subscription: &str) -> String {
         match self {
-            FuturesWebsocketAPI::Default => {
-                format!("wss://fstream.binance.com/ws/{}", subscription)
-            }
-            FuturesWebsocketAPI::MultiStream => {
-                format!("wss://fstream.binance.com/stream?streams={}", subscription)
-            }
-            FuturesWebsocketAPI::Custom(url) => url,
+            WebsocketAPI::Default => format!("wss://stream.binance.com:9443/ws/{}", subscription),
+            WebsocketAPI::MultiStream => format!("wss://stream.binance.com:9443/stream?streams={}", subscription),
+            WebsocketAPI::Custom(url) => url,
         }
     }
+
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -53,6 +47,8 @@ pub enum WebsocketEvent {
 pub struct WebSockets<'a> {
     pub socket: Option<(WebSocket<AutoStream>, Response)>,
     handler: Box<dyn FnMut(WebsocketEvent) -> Result<()> + 'a>,
+    #[allow(dead_code)]
+    subscription: &'a str,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -71,6 +67,7 @@ enum Events {
 }
 
 impl<'a> WebSockets<'a> {
+
     pub fn new<Callback>(handler: Callback) -> WebSockets<'a>
     where
         Callback: FnMut(WebsocketEvent) -> Result<()> + 'a,
@@ -78,31 +75,33 @@ impl<'a> WebSockets<'a> {
         WebSockets {
             socket: None,
             handler: Box::new(handler),
+            subscription: "",
         }
     }
 
-    pub fn new_with_subscription<Callback>(handler: Callback) -> WebSockets<'a>
+    pub fn new_with_subscription<Callback>(subscription: &'a str, handler: Callback) -> WebSockets<'a>
     where
         Callback: FnMut(WebsocketEvent) -> Result<()> + 'a,
     {
         WebSockets {
             socket: None,
             handler: Box::new(handler),
+            subscription,
         }
     }
 
     pub fn connect(&mut self, subscription: &'a str) -> Result<()> {
-        self.connect_wss(FuturesWebsocketAPI::Default.params(subscription))
+        self.subscription = subscription;
+        self.connect_wss(WebsocketAPI::Default.params(subscription))
     }
 
     pub fn connect_with_config(&mut self, subscription: &'a str, config: &'a Config) -> Result<()> {
-        self.connect_wss(
-            FuturesWebsocketAPI::Custom(config.ws_endpoint.clone()).params(subscription),
-        )
+        self.subscription = subscription;
+        self.connect_wss(WebsocketAPI::Custom(config.ws_endpoint.clone()).params(subscription))
     }
 
     pub fn connect_multiple_streams(&mut self, endpoints: &[String]) -> Result<()> {
-        self.connect_wss(FuturesWebsocketAPI::MultiStream.params(&endpoints.join("/")))
+        self.connect_wss(WebsocketAPI::MultiStream.params(&endpoints.join("/")))
     }
 
     fn connect_wss(&mut self, wss: String) -> Result<()> {
@@ -112,7 +111,7 @@ impl<'a> WebSockets<'a> {
                 self.socket = Some(answer);
                 Ok(())
             }
-            Err(e) => bail!(format!("Error during handshake {}", e)),
+            Err(e) => bail!(format!("Error during handshake {}", e))
         }
     }
 
@@ -123,12 +122,13 @@ impl<'a> WebSockets<'a> {
         }
         bail!("Not able to close the connection");
     }
-
+    
     pub fn test_handle_msg(&mut self, msg: &str) -> Result<()> {
         self.handle_msg(msg)
     }
 
     fn handle_msg(&mut self, msg: &str) -> Result<()> {
+
         let value: serde_json::Value = serde_json::from_str(msg)?;
 
         if let Some(data) = value.get("data") {
@@ -165,10 +165,11 @@ impl<'a> WebSockets<'a> {
                         }
                     }
                     Message::Ping(_) | Message::Pong(_) | Message::Binary(_) => (),
-                    Message::Close(e) => bail!(format!("Disconnected {:?}", e)),
+                    Message::Close(e) => bail!(format!("Disconnected {:?}", e))
                 }
             }
         }
         Ok(())
     }
+
 }

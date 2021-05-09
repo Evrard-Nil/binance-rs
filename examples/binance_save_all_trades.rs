@@ -1,10 +1,10 @@
 use std::error::Error;
 use std::fs::File;
 use csv::Writer;
-use std::sync::atomic::{AtomicBool};
+use std::sync::atomic::AtomicBool;
 
 use binance::websockets::*;
-use binance::model::{DayTickerEvent};
+use binance::model::DayTickerEvent;
 
 fn main() {
     save_all_trades_websocket();
@@ -13,7 +13,7 @@ fn main() {
 fn save_all_trades_websocket() {
     struct WebSocketHandler {
         wrt: Writer<File>,
-    };
+    }
 
     impl WebSocketHandler {
         pub fn new(local_wrt: Writer<File>) -> Self {

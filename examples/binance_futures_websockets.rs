@@ -1,6 +1,6 @@
 use binance::api::*;
 use binance::userstream::*;
-use binance::websockets::*;
+use binance::futures::websockets::*;
 use std::{
     env,
     sync::atomic::{AtomicBool, Ordering},
