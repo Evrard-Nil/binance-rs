@@ -1,4 +1,4 @@
-# binance-rs
+# binance-rs FORK
 
 Unofficial Rust Library for the [Binance API](https://github.com/binance/binance-spot-api-docs) and [Binance Futures API](https://binance-docs.github.io/apidocs/futures/en/#general-info)
 
@@ -12,7 +12,7 @@ Unofficial Rust Library for the [Binance API](https://github.com/binance/binance
 
 ## Binance API Telegram
 
-  <https://t.me/binance_api_english>
+<https://t.me/binance_api_english>
 
 ## Risk Warning
 
@@ -34,7 +34,8 @@ binance = { git = "https://github.com/wisespace-io/binance-rs.git" }
 rustup install stable
 ```
 
-### Table of Contents  
+### Table of Contents
+
 - [MARKET DATA](#market-data)
 - [ACCOUNT DATA](#account-data)
 - [ERROR HANDLING](#error-handling)
@@ -370,7 +371,7 @@ fn main() {
         };
         Ok(())
     });
- 
+
     web_socket.connect(&kline).unwrap(); // check error
     if let Err(e) = web_socket.event_loop(&keep_running) {
         match e {
