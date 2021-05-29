@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Clone)]
-pub struct Empty { }
+pub struct Empty {}
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -116,8 +116,9 @@ pub struct AccountInformation {
 #[serde(rename_all = "camelCase")]
 pub struct Balance {
     pub asset: String,
-    pub free: String,
-    pub locked: String,
+    pub free: f64,
+    #[serde(with = "string_or_float")]
+    pub locked: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -223,10 +224,7 @@ pub struct Bids {
 
 impl Bids {
     pub fn new(price: f64, qty: f64) -> Bids {
-        Bids { 
-            price, 
-            qty,
-        }
+        Bids { price, qty }
     }
 }
 
@@ -663,7 +661,7 @@ pub struct KlineEvent {
     pub kline: Kline,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct KlineSummary {
     pub open_time: i64,
 

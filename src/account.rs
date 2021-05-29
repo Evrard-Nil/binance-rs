@@ -5,6 +5,7 @@ use crate::errors::*;
 use std::collections::BTreeMap;
 use crate::api::API;
 use crate::api::Spot;
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone)]
 pub struct Account {
@@ -12,7 +13,7 @@ pub struct Account {
     pub recv_window: u64,
 }
 
-struct OrderRequest {
+pub struct OrderRequest {
     pub symbol: String,
     pub qty: f64,
     pub price: f64,
@@ -31,58 +32,49 @@ struct OrderQuoteQuantityRequest {
     pub time_in_force: TimeInForce,
 }
 
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename = "SCREAMING_SNAKE_CASE")]
 pub enum OrderType {
     Limit,
     Market,
+    StopLoss,
     StopLossLimit,
+    TakeProfit,
+    TakeProfitLimit,
+    LimitMaker,
 }
 
-impl From<OrderType> for String {
-    fn from(item: OrderType) -> Self {
-        match item {
-            OrderType::Limit => String::from("LIMIT"),
-            OrderType::Market => String::from("MARKET"),
-            OrderType::StopLossLimit => String::from("STOP_LOSS_LIMIT"),
-        }
-    }
-}
-
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename = "SCREAMING_SNAKE_CASE")]
 pub enum OrderSide {
     Buy,
     Sell,
 }
 
-impl From<OrderSide> for String {
-    fn from(item: OrderSide) -> Self {
-        match item {
-            OrderSide::Buy => String::from("BUY"),
-            OrderSide::Sell => String::from("SELL"),
-        }
-    }
-}
-
-#[allow(clippy::all)]
+/// Time in force (timeInForce):
+/// This sets how long an order will be active before expiration.
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename = "SCREAMING_SNAKE_CASE")]
 pub enum TimeInForce {
-    GTC,
-    IOC,
-    FOK,
-}
+    /// Good Til Cancelled
+    /// orders are effective until they are executed or canceled.
+    Gtc,
 
-impl From<TimeInForce> for String {
-    fn from(item: TimeInForce) -> Self {
-        match item {
-            TimeInForce::GTC => String::from("GTC"),
-            TimeInForce::IOC => String::from("IOC"),
-            TimeInForce::FOK => String::from("FOK"),
-        }
-    }
+    /// Immediate Or Cancel
+    /// An order will try to fill the order as much as it can before the order expires.
+    Ioc,
+
+    /// Fill or Kill
+    /// An order will expire if the full order cannot be filled upon execution.
+    Fok,
 }
 
 impl Account {
     // Account Information
     pub fn get_account(&self) -> Result<AccountInformation> {
         let request = build_signed_request(BTreeMap::new(), self.recv_window)?;
-        self.client.get_signed(API::Spot(Spot::Account), Some(request))
+        self.client
+            .get_signed(API::Spot(Spot::Account), Some(request))
     }
 
     // Balance for a single Asset
@@ -113,7 +105,8 @@ impl Account {
         parameters.insert("symbol".into(), symbol.into());
 
         let request = build_signed_request(parameters, self.recv_window)?;
-        self.client.get_signed(API::Spot(Spot::OpenOrders), Some(request))
+        self.client
+            .get_signed(API::Spot(Spot::OpenOrders), Some(request))
     }
 
     // All current open orders
@@ -121,7 +114,8 @@ impl Account {
         let parameters: BTreeMap<String, String> = BTreeMap::new();
 
         let request = build_signed_request(parameters, self.recv_window)?;
-        self.client.get_signed(API::Spot(Spot::OpenOrders), Some(request))
+        self.client
+            .get_signed(API::Spot(Spot::OpenOrders), Some(request))
     }
 
     // Cancel all open orders for a single symbol
@@ -132,7 +126,8 @@ impl Account {
         let mut parameters: BTreeMap<String, String> = BTreeMap::new();
         parameters.insert("symbol".into(), symbol.into());
         let request = build_signed_request(parameters, self.recv_window)?;
-        self.client.delete_signed(API::Spot(Spot::OpenOrders), Some(request))
+        self.client
+            .delete_signed(API::Spot(Spot::OpenOrders), Some(request))
     }
 
     // Check an order's status
@@ -145,7 +140,8 @@ impl Account {
         parameters.insert("orderId".into(), order_id.to_string());
 
         let request = build_signed_request(parameters, self.recv_window)?;
-        self.client.get_signed(API::Spot(Spot::Order), Some(request))
+        self.client
+            .get_signed(API::Spot(Spot::Order), Some(request))
     }
 
     /// Place a test status order
@@ -162,7 +158,7 @@ impl Account {
         let request = build_signed_request(parameters, self.recv_window)?;
         self.client
             .get_signed::<Empty>(API::Spot(Spot::OrderTest), Some(request))
-            .map(|_|())
+            .map(|_| ())
     }
 
     // Place a LIMIT order - BUY
@@ -178,7 +174,7 @@ impl Account {
             stop_price: None,
             order_side: OrderSide::Buy,
             order_type: OrderType::Limit,
-            time_in_force: TimeInForce::GTC,
+            time_in_force: TimeInForce::Gtc,
         };
         let order = self.build_order(buy);
         let request = build_signed_request(order, self.recv_window)?;
@@ -200,13 +196,13 @@ impl Account {
             stop_price: None,
             order_side: OrderSide::Buy,
             order_type: OrderType::Limit,
-            time_in_force: TimeInForce::GTC,
+            time_in_force: TimeInForce::Gtc,
         };
         let order = self.build_order(buy);
         let request = build_signed_request(order, self.recv_window)?;
         self.client
             .post_signed::<Empty>(API::Spot(Spot::OrderTest), request)
-            .map(|_|())
+            .map(|_| ())
     }
 
     // Place a LIMIT order - SELL
@@ -222,7 +218,7 @@ impl Account {
             stop_price: None,
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
-            time_in_force: TimeInForce::GTC,
+            time_in_force: TimeInForce::Gtc,
         };
         let order = self.build_order(sell);
         let request = build_signed_request(order, self.recv_window)?;
@@ -244,13 +240,13 @@ impl Account {
             stop_price: None,
             order_side: OrderSide::Sell,
             order_type: OrderType::Limit,
-            time_in_force: TimeInForce::GTC,
+            time_in_force: TimeInForce::Gtc,
         };
         let order = self.build_order(sell);
         let request = build_signed_request(order, self.recv_window)?;
         self.client
             .post_signed::<Empty>(API::Spot(Spot::OrderTest), request)
-            .map(|_|())
+            .map(|_| ())
     }
 
     // Place a MARKET order - BUY
@@ -266,7 +262,7 @@ impl Account {
             stop_price: None,
             order_side: OrderSide::Buy,
             order_type: OrderType::Market,
-            time_in_force: TimeInForce::GTC,
+            time_in_force: TimeInForce::Gtc,
         };
         let order = self.build_order(buy);
         let request = build_signed_request(order, self.recv_window)?;
@@ -288,13 +284,13 @@ impl Account {
             stop_price: None,
             order_side: OrderSide::Buy,
             order_type: OrderType::Market,
-            time_in_force: TimeInForce::GTC,
+            time_in_force: TimeInForce::Gtc,
         };
         let order = self.build_order(buy);
         let request = build_signed_request(order, self.recv_window)?;
         self.client
             .post_signed::<Empty>(API::Spot(Spot::OrderTest), request)
-            .map(|_|())
+            .map(|_| ())
     }
 
     // Place a MARKET order with quote quantity - BUY
@@ -311,7 +307,7 @@ impl Account {
             price: 0.0,
             order_side: OrderSide::Buy,
             order_type: OrderType::Market,
-            time_in_force: TimeInForce::GTC,
+            time_in_force: TimeInForce::Gtc,
         };
         let order = self.build_quote_quantity_order(buy);
         let request = build_signed_request(order, self.recv_window)?;
@@ -334,13 +330,13 @@ impl Account {
             price: 0.0,
             order_side: OrderSide::Buy,
             order_type: OrderType::Market,
-            time_in_force: TimeInForce::GTC,
+            time_in_force: TimeInForce::Gtc,
         };
         let order = self.build_quote_quantity_order(buy);
         let request = build_signed_request(order, self.recv_window)?;
         self.client
             .post_signed::<Empty>(API::Spot(Spot::OrderTest), request)
-            .map(|_|())
+            .map(|_| ())
     }
 
     // Place a MARKET order - SELL
@@ -356,7 +352,7 @@ impl Account {
             stop_price: None,
             order_side: OrderSide::Sell,
             order_type: OrderType::Market,
-            time_in_force: TimeInForce::GTC,
+            time_in_force: TimeInForce::Gtc,
         };
         let order = self.build_order(sell);
         let request = build_signed_request(order, self.recv_window)?;
@@ -378,13 +374,13 @@ impl Account {
             stop_price: None,
             order_side: OrderSide::Sell,
             order_type: OrderType::Market,
-            time_in_force: TimeInForce::GTC,
+            time_in_force: TimeInForce::Gtc,
         };
         let order = self.build_order(sell);
         let request = build_signed_request(order, self.recv_window)?;
         self.client
-        .post_signed::<Empty>(API::Spot(Spot::OrderTest), request)
-        .map(|_|())
+            .post_signed::<Empty>(API::Spot(Spot::OrderTest), request)
+            .map(|_| ())
     }
 
     // Place a MARKET order with quote quantity - SELL
@@ -401,7 +397,7 @@ impl Account {
             price: 0.0,
             order_side: OrderSide::Sell,
             order_type: OrderType::Market,
-            time_in_force: TimeInForce::GTC,
+            time_in_force: TimeInForce::Gtc,
         };
         let order = self.build_quote_quantity_order(sell);
         let request = build_signed_request(order, self.recv_window)?;
@@ -424,18 +420,18 @@ impl Account {
             price: 0.0,
             order_side: OrderSide::Sell,
             order_type: OrderType::Market,
-            time_in_force: TimeInForce::GTC,
+            time_in_force: TimeInForce::Gtc,
         };
         let order = self.build_quote_quantity_order(sell);
         let request = build_signed_request(order, self.recv_window)?;
         self.client
-        .post_signed::<Empty>(API::Spot(Spot::OrderTest), request)
-        .map(|_|())
+            .post_signed::<Empty>(API::Spot(Spot::OrderTest), request)
+            .map(|_| ())
     }
 
-    /// Create a stop limit buy order for the given symbol, price and stop price. 
+    /// Create a stop limit buy order for the given symbol, price and stop price.
     /// Returning a `Transaction` value with the same parameters sent on the order.
-    /// 
+    ///
     ///```no_run
     /// use binance::api::Binance;
     /// use binance::account::*;
@@ -448,12 +444,7 @@ impl Account {
     /// }
     /// ```
     pub fn stop_limit_buy_order<S, F>(
-        &self,
-        symbol: S,
-        qty: F,
-        price: f64,
-        stop_price: f64,
-        time_in_force: TimeInForce,
+        &self, symbol: S, qty: F, price: f64, stop_price: f64, time_in_force: TimeInForce,
     ) -> Result<Transaction>
     where
         S: Into<String>,
@@ -473,11 +464,11 @@ impl Account {
         self.client.post_signed(API::Spot(Spot::Order), request)
     }
 
-    /// Create a stop limit buy test order for the given symbol, price and stop price. 
+    /// Create a stop limit buy test order for the given symbol, price and stop price.
     /// Returning a `Transaction` value with the same parameters sent on the order.
-    /// 
+    ///
     /// This order is sandboxed: it is validated, but not sent to the matching engine.
-    /// 
+    ///
     ///```no_run
     /// use binance::api::Binance;
     /// use binance::account::*;
@@ -490,12 +481,7 @@ impl Account {
     /// }
     /// ```
     pub fn test_stop_limit_buy_order<S, F>(
-        &self,
-        symbol: S,
-        qty: F,
-        price: f64,
-        stop_price: f64,
-        time_in_force: TimeInForce,
+        &self, symbol: S, qty: F, price: f64, stop_price: f64, time_in_force: TimeInForce,
     ) -> Result<()>
     where
         S: Into<String>,
@@ -514,12 +500,12 @@ impl Account {
         let request = build_signed_request(order, self.recv_window)?;
         self.client
             .post_signed::<Empty>(API::Spot(Spot::OrderTest), request)
-            .map(|_|())
+            .map(|_| ())
     }
 
-    /// Create a stop limit sell order for the given symbol, price and stop price. 
+    /// Create a stop limit sell order for the given symbol, price and stop price.
     /// Returning a `Transaction` value with the same parameters sent on the order.
-    /// 
+    ///
     ///```no_run
     /// use binance::api::Binance;
     /// use binance::account::*;
@@ -532,12 +518,7 @@ impl Account {
     /// }
     /// ```
     pub fn stop_limit_sell_order<S, F>(
-        &self,
-        symbol: S,
-        qty: F,
-        price: f64,
-        stop_price: f64,
-        time_in_force: TimeInForce,
+        &self, symbol: S, qty: F, price: f64, stop_price: f64, time_in_force: TimeInForce,
     ) -> Result<Transaction>
     where
         S: Into<String>,
@@ -557,11 +538,11 @@ impl Account {
         self.client.post_signed(API::Spot(Spot::Order), request)
     }
 
-    /// Create a stop limit sell order for the given symbol, price and stop price. 
+    /// Create a stop limit sell order for the given symbol, price and stop price.
     /// Returning a `Transaction` value with the same parameters sent on the order.
-    /// 
+    ///
     /// This order is sandboxed: it is validated, but not sent to the matching engine.
-    /// 
+    ///
     ///```no_run
     /// use binance::api::Binance;
     /// use binance::account::*;
@@ -574,12 +555,7 @@ impl Account {
     /// }
     /// ```
     pub fn test_stop_limit_sell_order<S, F>(
-        &self,
-        symbol: S,
-        qty: F,
-        price: f64,
-        stop_price: f64,
-        time_in_force: TimeInForce,
+        &self, symbol: S, qty: F, price: f64, stop_price: f64, time_in_force: TimeInForce,
     ) -> Result<()>
     where
         S: Into<String>,
@@ -598,20 +574,14 @@ impl Account {
         let request = build_signed_request(order, self.recv_window)?;
         self.client
             .post_signed::<Empty>(API::Spot(Spot::OrderTest), request)
-            .map(|_|())
+            .map(|_| ())
     }
-    
+
     /// Place a custom order
-    #[allow(clippy::too_many_arguments)] 
+    #[allow(clippy::too_many_arguments)]
     pub fn custom_order<S, F>(
-        &self,
-        symbol: S,
-        qty: F,
-        price: f64,
-        stop_price: Option<f64>,
-        order_side: OrderSide,
-        order_type: OrderType,
-        time_in_force: TimeInForce,
+        &self, symbol: S, qty: F, price: f64, stop_price: Option<f64>, order_side: OrderSide,
+        order_type: OrderType, time_in_force: TimeInForce,
     ) -> Result<Transaction>
     where
         S: Into<String>,
@@ -634,16 +604,10 @@ impl Account {
     /// Place a test custom order
     ///
     /// This order is sandboxed: it is validated, but not sent to the matching engine.
-    #[allow(clippy::too_many_arguments)] 
+    #[allow(clippy::too_many_arguments)]
     pub fn test_custom_order<S, F>(
-        &self,
-        symbol: S,
-        qty: F,
-        price: f64,
-        stop_price: Option<f64>,
-        order_side: OrderSide,
-        order_type: OrderType,
-        time_in_force: TimeInForce,
+        &self, symbol: S, qty: F, price: f64, stop_price: Option<f64>, order_side: OrderSide,
+        order_type: OrderType, time_in_force: TimeInForce,
     ) -> Result<()>
     where
         S: Into<String>,
@@ -662,7 +626,7 @@ impl Account {
         let request = build_signed_request(order, self.recv_window)?;
         self.client
             .post_signed::<Empty>(API::Spot(Spot::OrderTest), request)
-            .map(|_|())
+            .map(|_| ())
     }
 
     // Check an order's status
@@ -675,7 +639,8 @@ impl Account {
         parameters.insert("orderId".into(), order_id.to_string());
 
         let request = build_signed_request(parameters, self.recv_window)?;
-        self.client.delete_signed(API::Spot(Spot::Order), Some(request))
+        self.client
+            .delete_signed(API::Spot(Spot::Order), Some(request))
     }
 
     /// Place a test cancel order
@@ -691,7 +656,7 @@ impl Account {
         let request = build_signed_request(parameters, self.recv_window)?;
         self.client
             .delete_signed::<Empty>(API::Spot(Spot::OrderTest), Some(request))
-            .map(|_|())
+            .map(|_| ())
     }
 
     // Trade history
@@ -703,15 +668,22 @@ impl Account {
         parameters.insert("symbol".into(), symbol.into());
 
         let request = build_signed_request(parameters, self.recv_window)?;
-        self.client.get_signed(API::Spot(Spot::MyTrades), Some(request))
+        self.client
+            .get_signed(API::Spot(Spot::MyTrades), Some(request))
     }
 
     fn build_order(&self, order: OrderRequest) -> BTreeMap<String, String> {
         let mut order_parameters: BTreeMap<String, String> = BTreeMap::new();
 
         order_parameters.insert("symbol".into(), order.symbol);
-        order_parameters.insert("side".into(), order.order_side.into());
-        order_parameters.insert("type".into(), order.order_type.into());
+        order_parameters.insert(
+            "side".into(),
+            serde_json::to_string(&order.order_side).unwrap(),
+        );
+        order_parameters.insert(
+            "type".into(),
+            serde_json::to_string(&order.order_type).unwrap(),
+        );
         order_parameters.insert("quantity".into(), order.qty.to_string());
 
         if let Some(stop_price) = order.stop_price {
@@ -720,7 +692,10 @@ impl Account {
 
         if order.price != 0.0 {
             order_parameters.insert("price".into(), order.price.to_string());
-            order_parameters.insert("timeInForce".into(), order.time_in_force.into());
+            order_parameters.insert(
+                "timeInForce".into(),
+                serde_json::to_string(&order.time_in_force).unwrap(),
+            );
         }
 
         order_parameters
@@ -732,13 +707,22 @@ impl Account {
         let mut order_parameters: BTreeMap<String, String> = BTreeMap::new();
 
         order_parameters.insert("symbol".into(), order.symbol);
-        order_parameters.insert("side".into(), order.order_side.into());
-        order_parameters.insert("type".into(), order.order_type.into());
+        order_parameters.insert(
+            "side".into(),
+            serde_json::to_string(&order.order_side).unwrap(),
+        );
+        order_parameters.insert(
+            "type".into(),
+            serde_json::to_string(&order.order_type).unwrap(),
+        );
         order_parameters.insert("quoteOrderQty".into(), order.quote_order_qty.to_string());
 
         if order.price != 0.0 {
             order_parameters.insert("price".into(), order.price.to_string());
-            order_parameters.insert("timeInForce".into(), order.time_in_force.into());
+            order_parameters.insert(
+                "timeInForce".into(),
+                serde_json::to_string(&order.time_in_force).unwrap(),
+            );
         }
 
         order_parameters
